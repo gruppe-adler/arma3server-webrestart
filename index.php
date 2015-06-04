@@ -1,6 +1,8 @@
 <?php
 
 const SERVER_TEMPLATE_ROOT = '/home/arma3server/arma3/config/templates';
+const RESTART_TRIGGER_FILENAME = '/tmp/arma3server-webrestart-command';
+const ARMA3_PATH = '/home/arma3server/arma3';
 
 $secretsFile = '/etc/arma3server-webrestart.ini';
 $secrets = parse_ini_file($secretsFile);
@@ -35,17 +37,21 @@ function send($statuscode, $message = '', $output = '')
 	exit;
 }
 
-function getRestartTriggerFilename($port)
-{
-	return $filename = sprintf('/tmp/arma3server-webrestart-%d', $port);
-}
 
-function triggerRestart($user, $port)
+function triggerRestart($user, $port, $template = '')
 {
 	$date = date('Y-m-d H:i:s');
-	$filename = getRestartTriggerFilename($port);
-	file_put_contents($filename, "MACH, SAGT $user at $date\n", FILE_APPEND);
-	chmod($filename, 0666);
+	file_put_contents(
+		RESTART_TRIGGER_FILENAME,
+		json_encode([
+			'date' => $date,
+			'user' => $user,
+			'port' => $port,
+			'template' => $template
+		]) . "\n",
+		FILE_APPEND
+	);
+	chmod(RESTART_TRIGGER_FILENAME, 0666);
 }
 
 function getTemplateNames() {
@@ -54,7 +60,7 @@ function getTemplateNames() {
 	}
 
 	$is_dir = function ($filename) {
-		return is_dir(SERVER_TEMPLATE_ROOT . '/' . $filename);
+		return is_dir(SERVER_TEMPLATE_ROOT . '/' . $filename) && !is_link(SERVER_TEMPLATE_ROOT . '/' . $filename);
 	};
 
 	$is_not_dot = function ($dirname) {
@@ -73,33 +79,52 @@ function getTemplateNames() {
 	return $entries;
 }
 
-$givenSecret = isset($_REQUEST['secret']) ? $_REQUEST['secret'] : '';
+function getServerPorts() {
+	$files = scandir(ARMA3_PATH);
+	$serverPorts = [];
+	foreach ($files as $file) {
+		$matches = [];
+		if (preg_match('/^arma3server-([0-9]{4,5})$/', $file, $matches)) {
+			$serverPorts[] = intval($matches[1]);
+		}
+	}
+
+
+	return $serverPorts;
+}
+
+$givenSecret = isset($_REQUEST['secret']) ? trim($_REQUEST['secret']) : '';
+$givenPort = isset($_POST['port']) ? intval($_POST['port']) : 0;
+$givenTemplate = isset($_POST['template']) ? trim($_POST['template']) : '';
+$wantsRestart = isset($_POST['restart']);
 
 $user = '';
-$port = 0;
-$triggerRestart = false;
 if ($givenSecret && in_array($givenSecret, $secrets, true)) {
 	$user = array_flip($secrets)[$givenSecret];
 }
-$wantsRestart = isset($_POST['restart']);
+
+
 if ($wantsRestart) {
-	$port = isset($_POST['port']) ? intval($_POST['port']) : 0;
-	$triggerRestart =
-		($port && isset($_POST['restart'])) ? true : false;
 
-	if ($triggerRestart) {
-		if ($user) {
-			$date = date('Y-m-d H:i:s');
-			syslog(LOG_INFO, "arma3server $port restart triggered at $date by $user");
-
-			triggerRestart($user, $port);
-		} else {
-			echo "I don't know you.";
-			exit;
-		}
+	if (!$givenPort) {
+		echo "invalid port";
+		exit;
 	}
-}
+	if ($givenTemplate && !in_array($givenTemplate, getTemplateNames(), true)) {
+		echo "invalid template name given";
+		exit;
+	}
 
+	if (!$user) {
+		echo "I dont know you.";
+		exit;
+	}
+
+	$date = date('Y-m-d H:i:s');
+	syslog(LOG_INFO, "arma3server $givenPort restart triggered at $date by $user");
+
+	triggerRestart($user, $givenPort, $givenTemplate);
+}
 
 ?>
 <!DOCTYPE html>
@@ -116,29 +141,21 @@ if ($wantsRestart) {
 </head>
 <body>
 <h1>Hallo <?= $user ?></h1>
-<? if ($wantsRestart) { ?>
-	<? if ($triggerRestart) {
-		$requestNumber = explode("\n", trim(file_get_contents(getRestartTriggerFilename($port))), 100);
+<? if ($wantsRestart) {
+	$requestNumber = explode("\n", trim(file_get_contents(RESTART_TRIGGER_FILENAME)), 100);
+	?>
+	<div class="alert alert-success">
+		Neustart für Server <?= $givenPort ?> ausgelöst (<?= count($requestNumber) ?>)
+	</div>
+	<?
+	if (count($requestNumber) > 3) {
 		?>
-		<div class="alert alert-success">
-			Neustart für Server <?= $port ?> ausgelöst (<?= count($requestNumber) ?>)
+		<div class="alert alert-warning">
+			Es sind schon einige Neustart-Anweisungen aufgelaufen -- evtl ist hier was kaputt :(
 		</div>
 		<?
-		if (count($requestNumber) > 3) {
-			?>
-			<div class="alert alert-warning">
-				Es sind schon einige Neustart-Anweisungen aufgelaufen -- evtl ist hier was kaputt :(
-			</div>
-			<?
-		}
-		?>
-	<? } else {
-		?>
-		<div class="alert alert-danger">
-			Da hat was nicht funktioniert, <?= $user ?: 'ich kenn dich nich.' ?>
-		</div>
-		<?
-	} ?>
+	}
+	?>
 <? } ?>
 <form name="restart" method="post" action="">
 	<div class="input-group">
@@ -150,9 +167,9 @@ if ($wantsRestart) {
 			Server-Port:
 			<select name="port">
 				<option value="" selected>----</option>
-				<option value="2302">2302</option>
-				<option value="2342">2342</option>
-				<option value="2362">2362</option>
+				<?php foreach (getServerPorts() as $serverPort) {?>
+					<option value="<?= $serverPort ?>"><?= $serverPort?></option>
+				<?php } ?>
 			</select>
 		</label>
 	</div>
