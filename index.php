@@ -1,5 +1,6 @@
 <?php
 
+const SERVER_TEMPLATE_ROOT = '/home/arma3server/arma3/config/templates';
 
 $secretsFile = '/etc/arma3server-webrestart.ini';
 $secrets = parse_ini_file($secretsFile);
@@ -45,6 +46,31 @@ function triggerRestart($user, $port)
 	$filename = getRestartTriggerFilename($port);
 	file_put_contents($filename, "MACH, SAGT $user at $date\n", FILE_APPEND);
 	chmod($filename, 0666);
+}
+
+function getTemplateNames() {
+	if (!is_dir(SERVER_TEMPLATE_ROOT)) {
+		throw new RuntimeException('SERVER_TEMPLATE_ROOT must be a directory');
+	}
+
+	$is_dir = function ($filename) {
+		return is_dir(SERVER_TEMPLATE_ROOT . '/' . $filename);
+	};
+
+	$is_not_dot = function ($dirname) {
+		return strpos($dirname, '.') !== 0;
+	};
+
+	$is_not_dangerous = function ($dirname) {
+		return strpos($dirname, '..') === false;
+	};
+
+	$entries = scandir(SERVER_TEMPLATE_ROOT);
+	$entries = array_filter($entries, $is_dir);
+	$entries = array_filter($entries, $is_not_dot);
+	$entries = array_filter($entries, $is_not_dangerous);
+
+	return $entries;
 }
 
 $givenSecret = isset($_REQUEST['secret']) ? $_REQUEST['secret'] : '';
@@ -127,6 +153,17 @@ if ($wantsRestart) {
 				<option value="2302">2302</option>
 				<option value="2342">2342</option>
 				<option value="2362">2362</option>
+			</select>
+		</label>
+	</div>
+	<div class="input-group">
+		<label>
+			Server-Konfiguration:
+			<select name="template">
+				<option value="" selected> --- (vorherige)</option>
+				<?php foreach (getTemplateNames() as $templateName) { ?>
+					<option value="<?= $templateName ?>"><?= $templateName ?></option>
+				<?php } ?>
 			</select>
 		</label>
 	</div>
