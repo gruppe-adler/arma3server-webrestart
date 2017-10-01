@@ -130,9 +130,10 @@ if ($wantsRestart) {
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Arma3 Server-Restart :)</title>
+	<title>Gruppe Adler Server Manager</title>
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
+	<link rel="stylesheet" type="text/css" href="restart.css"/>
 	<style>
 		body {
 			margin: 1em;
@@ -140,12 +141,12 @@ if ($wantsRestart) {
 	</style>
 </head>
 <body>
-<h1>Hallo <?= $user ?></h1>
+<img src="https://www.gruppe-adler.de/wp-content/uploads/160x160_ocker.png" width="80" height="80">
 <? if ($wantsRestart) {
 	$requestNumber = explode("\n", trim(file_get_contents(RESTART_TRIGGER_FILENAME)), 100);
 	?>
 	<div class="alert alert-success">
-		Neustart für Server <?= $givenPort ?> ausgelöst (<?= count($requestNumber) ?>)
+		<h1>Neustart für <?= $givenPort ?> ausgelöst (<?= count($requestNumber) ?>)</h1>
 	</div>
 	<?
 	if (count($requestNumber) > 3) {
@@ -156,39 +157,52 @@ if ($wantsRestart) {
 		<?
 	}
 	?>
-<? } ?>
+<? } else { ?>
+<h1>Server Neustart</h1> <? } 
+?>
 <form name="restart" method="post" action="">
 	<div class="input-group">
-		<label>Authentification:<input type="text" name="secret" value="<?= $givenSecret ?>" required/></label>
+		<label>Authentification
+		<br>
+			<input type="text" name="secret" value="<?= $givenSecret ?>" required/>
+		</label>
 		<input type="hidden" name="restart" value="1"/>
 	</div>
 	<div class="input-group">
 		<label>
-			Server-Port:
+			Port
+			<div class="selection">
 			<select name="port">
-				<option value="" selected>----</option>
+				<option value="" selected>bitte w&auml;hlen</option>
 				<?php foreach (getServerPorts() as $serverPort) {?>
 					<option value="<?= $serverPort ?>"><?= $serverPort?></option>
 				<?php } ?>
 			</select>
+			</div>
 		</label>
 	</div>
 	<div class="input-group">
 		<label>
-			Server-Konfiguration:
+			Konfiguration
+			<div class="selection">
 			<select name="template">
-				<option value="" selected> --- (vorherige)</option>
+				<option value="" selected>nicht &auml;ndern</option>
 				<?php foreach (getTemplateNames() as $templateName) { ?>
 					<option value="<?= $templateName ?>"><?= $templateName ?></option>
 				<?php } ?>
 			</select>
+			</div>
 		</label>
 	</div>
+	<div class="btn_container">
 	<div>
-		Ich darf das:
-		<button type="submit">Arma3-Server neustarten</button>
+		<button class="button" type="submit"><span>KILL</span></button>
+		</div>
 	</div>
 </form>
+<br><br>
+<a href="https://arma3-servers.net/server/109969/" style="display: innline-block; margin-top: 20px"><img src="https://arma3-servers.net/server/109969/banners/half-banner-2.png" border="0"></a><a href="https://arma3-servers.net/server/109971/" style="margin-left:20px"><img src="https://arma3-servers.net/server/109971/banners/half-banner-2.png" border="0"></a>
+
 <script>
 
 	(function () {
