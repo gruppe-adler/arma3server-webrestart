@@ -29,7 +29,7 @@ while (true) {
 	foreach ($commands as $command) {
 		$port = intval(isset($command->port) ? $command->port : 0);
 		$template = isset($command->template) ? trim($command->template) : '';
-		if (($port === 0) || ($template && (strpos('.', $template) !== false))) {
+		if (($port === 0) || ($template && (strpos('/', $template) !== false))) {
 			syslog(LOG_ALERT, 'invalid parameters from arma3server-webrestart: ' . json_encode($command));
 			break;
 		}
@@ -37,6 +37,7 @@ while (true) {
 	}
 	foreach ($a3ups as $a3up) {
 		echo sprintf("executing %s in %s…\n", $a3up, getcwd());
-		shell_exec($a3up);
+		$out = shell_exec($a3up);
+		echo "\n" . str_replace("\n", "\n\t", $out) . "\n";
 	}
 }
